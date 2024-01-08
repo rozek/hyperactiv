@@ -1,6 +1,5 @@
 
 # Build
-/dist
 /types
 /temp
 
@@ -65,3 +64,6 @@ typings/
 
 # IDE
 .vscode
+
+package-lock.json
+.DS_Store
