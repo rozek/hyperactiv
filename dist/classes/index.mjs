@@ -1,0 +1,2 @@
+import e from"../index.mjs";const{observe:t,computed:s,dispose:o}=e;class i{constructor(e={},s){return Object.assign(this,e),Object.defineProperty(this,"__computed",{value:[],enumerable:!1}),t(this,Object.assign({bubble:!0},s))}computed(e,t){this.__computed.push(s(e.bind(this),t))}onChange(e){this.__handler=e}dispose(){for(;this.__computed.length;)o(this.__computed.pop())}}export{i as Observable};
+//# sourceMappingURL=index.mjs.map
