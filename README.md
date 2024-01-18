@@ -22,6 +22,8 @@ In other terms whenever a property from an observed object is **mutated**, every
 
 Of course, Hyperactiv **automatically** handles these dependencies so you **never** have to explicitly declare anything. ✨
 
+> compared to the [original](https://github.com/elbywan/hyperactiv), this fork adds some code to handle getters, setters and `defineProperty`
+
 ----
 
 #### Minimal working example
