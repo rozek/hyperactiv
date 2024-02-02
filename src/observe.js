@@ -181,7 +181,7 @@ export function observe(obj, options = {}) {
         // If the prop is ignored
         return Reflect.defineProperty(obj,prop,descriptor)
       } else if (! Array.isArray(obj) || (prop === 'length')) {
-      	if ('value' in descriptor) {
+      	if (('value' in descriptor) && deep && isObj(descriptor.value)) {
       	  descriptor = {...descriptor} // do not modify the argument itself
       	  descriptor.value = observe(descriptor.value, options)
       	}
