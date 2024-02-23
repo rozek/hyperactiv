@@ -23,6 +23,8 @@ const observedSymbol = Symbol('__observed')
  * @prop {boolean} [bind] - Automatically bind methods to the observed object.
  */
 
+export const modifiedProperty = Symbol('modifiedProperty')
+
 /**
  * Observes an object or an array and returns a proxified version which reacts on mutations.
  *
@@ -70,45 +72,8 @@ export function observe(obj, options = {}) {
       }
     })
   }
-
-  // For each observed object, each property is mapped with a set of computed functions depending on this property.
-  // Whenever a property is set, we re-run each one of the functions stored inside the matching Set.
-  const propertiesMap = new Map()
-
-  // Proxify the object in order to intercept get/set on props
-  const proxy = new Proxy(obj, {
-    get(_, prop) {
-      if(prop === observedSymbol)
-        return true
-
-      // If the prop is watched
-      if(isWatched(prop)) {
-        // If a computed function is being run
-        if(computedStack.length) {
-          const computedFn = computedStack[0]
-          // Tracks object and properties accessed during the function call
-          const tracker = computedFn[trackerSymbol]
-          if(tracker) {
-            let trackerSet = tracker.get(obj)
-            if(!trackerSet) {
-              trackerSet = new Set()
-              tracker.set(obj, trackerSet)
-            }
-            trackerSet.add(prop)
-          }
-          // Link the computed function and the property being accessed
-          let propertiesSet = propertiesMap.get(prop)
-          if(!propertiesSet) {
-            propertiesSet = new Set()
-            propertiesMap.set(prop, propertiesSet)
-          }
-          propertiesSet.add(computedFn)
-        }
-      }
-
-      return obj[prop]
-    },
-    set(_, prop, value) {
+  
+    function setObjectPropertyTo (obj, prop, value) {
       if(prop === '__handler') {
         // Don't track bubble handlers
         setHiddenKey(obj, '__handler', value)
@@ -117,7 +82,7 @@ export function observe(obj, options = {}) {
         obj[prop] = value
       } else if(Array.isArray(obj) && prop === 'length' || ValuesDiffer(obj[prop],value)) {
         // If the new/old value are not equal
-        const deeper = deep && isObj(value)
+        const deeper = (prop !== modifiedProperty) && deep && isObj(value)
 
         // Remove bubbling infrastructure and pass old value to handlers
         const oldValue = obj[prop]
@@ -170,8 +135,75 @@ export function observe(obj, options = {}) {
             }
           }
         }
+
+        if (prop !== modifiedProperty) {
+        	obj[modifiedProperty] = prop
+        	
+	        const dependents = propertiesMap.get(modifiedProperty)
+	        if(dependents) {
+	          // Retrieve the computed functions depending on "modifiedProperty"
+	          for(const dependent of dependents) {
+	            const tracker = dependent[trackerSymbol]
+	            const trackedObj = tracker && tracker.get(obj)
+	            const tracked = trackedObj && trackedObj.has(modifiedProperty)
+	            // If the function has been disposed or if "modifiedProperty" has not been used
+	            // during the latest function call, delete the function reference
+	            if(dependent.__disposed || tracker && !tracked) {
+	              dependents.delete(dependent)
+	            } else if(dependent !== computedStack[0]) {
+	              // Run the computed function
+	              if(typeof batch !== 'undefined' && batch !== false) {
+	                enqueue(dependent, batch)
+	                dependent[__batched] = true
+	              } else {
+	                dependent()
+	              }
+	            }
+	          }
+	        }
+        }
+      }
+    }
+
+  // For each observed object, each property is mapped with a set of computed functions depending on this property.
+  // Whenever a property is set, we re-run each one of the functions stored inside the matching Set.
+  const propertiesMap = new Map()
+
+  // Proxify the object in order to intercept get/set on props
+  const proxy = new Proxy(obj, {
+    get(_, prop) {
+      if(prop === observedSymbol)
+        return true
+
+      // If the prop is watched
+      if(isWatched(prop)) {
+        // If a computed function is being run
+        if(computedStack.length) {
+          const computedFn = computedStack[0]
+          // Tracks object and properties accessed during the function call
+          const tracker = computedFn[trackerSymbol]
+          if(tracker) {
+            let trackerSet = tracker.get(obj)
+            if(!trackerSet) {
+              trackerSet = new Set()
+              tracker.set(obj, trackerSet)
+            }
+            trackerSet.add(prop)
+          }
+          // Link the computed function and the property being accessed
+          let propertiesSet = propertiesMap.get(prop)
+          if(!propertiesSet) {
+            propertiesSet = new Set()
+            propertiesMap.set(prop, propertiesSet)
+          }
+          propertiesSet.add(computedFn)
+        }
       }
 
+      return obj[prop]
+    },
+    set(_, prop, value) {
+      setObjectPropertyTo(obj, prop, value)
       return true
     },
     defineProperty(_, prop, descriptor) {
@@ -185,12 +217,22 @@ export function observe(obj, options = {}) {
       	  descriptor = {...descriptor} // do not modify the argument itself
       	  descriptor.value = observe(descriptor.value, options)
       	}
-      	return Reflect.defineProperty(obj,prop,descriptor)
+      	const Outcome = Reflect.defineProperty(obj,prop,descriptor)
+      	  if (prop !== modifiedProperty) {
+	        	obj[modifiedProperty] = prop
+	        }
+      	return Outcome
       }
       return false
     },
     deleteProperty(_, prop) {
-    	if (prop in obj) { obj[prop] = undefined } // trigger observers one last time
+    	if (prop === modifiedProperty) throw new Error(
+    	  'internal property Symbol("modifiedProperty") must not be deleted'
+    	)
+
+    	if (prop in obj) {
+    		setObjectPropertyTo(obj, prop, undefined) // trigger observers one last time
+    	}
     	return Reflect.deleteProperty(_,prop)
     }
   })
