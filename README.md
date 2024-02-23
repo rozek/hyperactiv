@@ -22,7 +22,17 @@ In other terms whenever a property from an observed object is **mutated**, every
 
 Of course, Hyperactiv **automatically** handles these dependencies so you **never** have to explicitly declare anything. ✨
 
-> compared to the [original](https://github.com/elbywan/hyperactiv), this fork adds some code to handle getters, setters and `defineProperty`
+> compared to the [original](https://github.com/elbywan/hyperactiv), this fork adds
+> - code to handle getters, setters and `defineProperty`
+> - the capability of observing an object independent of specific keys
+>
+> To observe an object in general, simply `observe` it as usual and define a `computed` function for the exported symbol `modifiedProperty`:
+>
+> `import { observe, computed, modifiedProperty } from 'hyperactiv'`
+> `const observedVariable = observe({})`
+> `computed(() => console.log('modified property was',observedVariable[modifiedProperty]))`
+>
+> The `computed` function will now be called whenever _any_ property of `observedVariable` is modified - and `observedVariable[modifiedProperty]` will contain the key of the modified property
 
 ----
 
