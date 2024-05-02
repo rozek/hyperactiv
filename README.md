@@ -26,7 +26,7 @@ Of course, Hyperactiv **automatically** handles these dependencies so you **neve
 > - code to handle getters, setters and `defineProperty`
 > - the capability of observing an object independent of specific keys
 >
-> To observe an object in general, simply `observe` it as usual and define a `computed` function for the exported symbol `modifiedProperty`:
+> To observe an object in general, simply `observe` it as usual and define a `computed` function for the exported _symbol_ `modifiedProperty`:
 >
 > `import { observe, computed, modifiedProperty } from 'hyperactiv'`<br>
 > `const observedVariable = observe({})`<br>
