@@ -28,8 +28,8 @@ Of course, Hyperactiv **automatically** handles these dependencies so you **neve
 >
 > To observe an object in general, simply `observe` it as usual and define a `computed` function for the exported symbol `modifiedProperty`:
 >
-> `import { observe, computed, modifiedProperty } from 'hyperactiv'`
-> `const observedVariable = observe({})`
+> `import { observe, computed, modifiedProperty } from 'hyperactiv'`<br>
+> `const observedVariable = observe({})`<br>
 > `computed(() => console.log('modified property was',observedVariable[modifiedProperty]))`
 >
 > The `computed` function will now be called whenever _any_ property of `observedVariable` is modified - and `observedVariable[modifiedProperty]` will contain the key of the modified property
