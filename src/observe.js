@@ -245,14 +245,17 @@ export function observe(obj, options = {}) {
   return proxy
 }
 
-/**** ValuesDiffer - copied from "javascript-interface-library" ****/
+/**** ValuesDiffer - copied from "javascript-interface-library", then modified ****/
 
   function ValuesDiffer (thisValue, otherValue, Mode) {
-    if (thisValue === otherValue) { return false }
-
-    let thisType = typeof thisValue
-    if (thisType !== typeof otherValue) { return true }
-
+  	const visitedObjects = new Map()
+  	
+  	function ValuesDoDiffer (thisValue, otherValue, Mode) {
+	    if (thisValue === otherValue) { return false }
+	
+	    let thisType = typeof thisValue
+	    if (thisType !== typeof otherValue) { return true }
+	
     /**** ArraysDiffer ****/
 
       function ArraysDiffer (thisArray, otherArray, Mode) {
@@ -260,8 +263,16 @@ export function observe(obj, options = {}) {
 
         if (thisArray.length !== otherArray.length) { return true }
 
+        if (visitedObjects.has(thisArray) || visitedObjects.has(otherArray)) {
+        	if (visitedObjects.has(thisArray)  && visitedObjects.get(thisArray).has(otherArray)) { return false }
+        	if (visitedObjects.has(otherArray) && visitedObjects.get(otherArray).has(thisArray)) { return false }
+        	
+        	if (! visitedObjects.has(thisArray)) { visitedObjects.set(thisArray, new Set()) }
+        	visitedObjects.get(thisArray).add(otherArray)
+        }
+        
         for (let i = 0, l = thisArray.length; i < l; i++) {
-          if (ValuesDiffer(thisArray[i],otherArray[i],Mode)) { return true }
+          if (ValuesDoDiffer(thisArray[i],otherArray[i],Mode)) { return true }
         }
 
         return false
@@ -269,7 +280,7 @@ export function observe(obj, options = {}) {
 
     /**** ObjectsDiffer ****/
 
-      function ObjectsDiffer (thisObject, otherObject, Mode) {
+      function ObjectsDiffer (thisObject, otherObject, Mode='by-value') {
         if (Object.getPrototypeOf(thisObject) !== Object.getPrototypeOf(otherObject)) {
           return true
         }
@@ -280,47 +291,59 @@ export function observe(obj, options = {}) {
 
         for (let key in otherObject) {
           if (! (key in thisObject)) { return true }
+        }
 
-          if (ValuesDiffer(thisObject[key],otherObject[key],Mode)) {
+        if (visitedObjects.has(thisObject) || visitedObjects.has(otherObject)) {
+        	if (visitedObjects.has(thisObject)  && visitedObjects.get(thisObject).has(otherObject)) { return false }
+        	if (visitedObjects.has(otherObject) && visitedObjects.get(otherObject).has(thisObject)) { return false }
+        	
+        	if (! visitedObjects.has(thisObject)) { visitedObjects.set(thisObject, new Set()) }
+        	visitedObjects.get(thisObject).add(otherObject)
+        }
+
+        for (let key in thisObject) {
+          if (ValuesDoDiffer(thisObject[key],otherObject[key],Mode)) {
             return true
           }
         }
 
         return false
       }
-
-    switch (thisType) {
-      case 'undefined':
-      case 'boolean':
-      case 'string':
-      case 'function': return true   // most primitives are compared using "==="
-      case 'number':   return (
-                         (isNaN(thisValue) !== isNaN(otherValue)) ||
-                         (Math.abs(thisValue-otherValue) > Number.EPSILON)
-                       )
-      case 'object':
-        if (thisValue  == null) { return true }  // since "other_value" != null!
-        if (otherValue == null) { return true }   // since "this_value" != null!
-
-        if ((Mode === 'by-value') && (
-          (thisValue instanceof Boolean) ||
-          (thisValue instanceof Number) ||
-          (thisValue instanceof String)
-        )) {
-          return (thisValue.valueOf() !== otherValue.valueOf())
-        }
-
-        if (Array.isArray(thisValue)) {
-          return ArraysDiffer(thisValue,otherValue,Mode)
-        }
-
-        return (
-          Mode === 'by-reference'
-          ? true                           // because (thisValue !== otherValue)
-          : ObjectsDiffer(thisValue,otherValue,Mode)
-        )
-      default: return true                          // unsupported property type
-    }
-
-    return true
+	
+	    switch (thisType) {
+	      case 'undefined':
+	      case 'boolean':
+	      case 'string':
+	      case 'function': return true   // most primitives are compared using "==="
+	      case 'number':   return (
+	                         (isNaN(thisValue) !== isNaN(otherValue)) ||
+	                         (Math.abs(thisValue-otherValue) > Number.EPSILON)
+	                       )
+	      case 'object':
+	        if (thisValue  == null) { return true }  // since "other_value" != null!
+	        if (otherValue == null) { return true }   // since "this_value" != null!
+	
+	        if ((Mode === 'by-value') && (
+	          (thisValue instanceof Boolean) ||
+	          (thisValue instanceof Number) ||
+	          (thisValue instanceof String)
+	        )) {
+	          return (thisValue.valueOf() !== otherValue.valueOf())
+	        }
+	
+	        if (Array.isArray(thisValue)) {
+	          return ArraysDiffer(thisValue,otherValue,Mode)
+	        }
+	
+	        return (
+	          Mode === 'by-reference'
+	          ? true                           // because (thisValue !== otherValue)
+	          : ObjectsDiffer(thisValue,otherValue,Mode)
+	        )
+	      default: return true                          // unsupported property type
+	    }
+	
+	    return true
+  	}
+  	return ValuesDoDiffer(thisValue, otherValue, Mode)
   }
